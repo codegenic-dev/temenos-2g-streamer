@@ -11,20 +11,24 @@ import (
 	"time"
 )
 
-const (
+var (
+	MEDIADIR   = "media"
 	PORT       = "8080"
 	BUFFERSIZE = 4096
 	DELAY      = 150
 )
 
 func main() {
-	filenames := []string{
-		"media/dani.mp3",
-		"media/ethismos.mp3",
+	if mediaDirOverride := os.Getenv("T2G_MEDIA"); mediaDirOverride != "" {
+		MEDIADIR = mediaDirOverride
+	}
+
+	if portOverride := os.Getenv("T2G_PORT"); portOverride != "" {
+		PORT = portOverride
 	}
 
 	connPool := NewConnectionPool()
-	go stream(connPool, filenames)
+	go stream(connPool)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "audio/mpeg")
@@ -96,14 +100,28 @@ func NewConnectionPool() *ConnectionPool {
 	return &ConnectionPool{ConnectionMap: connectionMap}
 }
 
-func stream(connectionPool *ConnectionPool, filenames []string) {
+func stream(connectionPool *ConnectionPool) {
 	previousFilename := ""
-
 	for {
+		entries, err := os.ReadDir(MEDIADIR)
+		if err != nil {
+			log.Fatal(err)
+		}
+		filenames := make([]string, 0)
+		for _, e := range entries {
+			filenames = append(filenames, MEDIADIR+string(os.PathSeparator)+e.Name())
+		}
+
 		filename := filenames[rand.Intn(len(filenames))]
+		retries := 0
 		for filename == previousFilename {
 			filename = filenames[rand.Intn(len(filenames))]
+			retries++
+			if retries > 5 {
+				break
+			}
 		}
+		previousFilename = filename
 
 		file, err := os.Open(filename)
 		if err != nil {
@@ -117,7 +135,7 @@ func stream(connectionPool *ConnectionPool, filenames []string) {
 
 		buffer := make([]byte, BUFFERSIZE)
 		tempfile := bytes.NewReader(content)
-		ticker := time.NewTicker(time.Millisecond * DELAY)
+		ticker := time.NewTicker(time.Millisecond * time.Duration(DELAY))
 
 		for range ticker.C {
 			_, err := tempfile.Read(buffer)
