@@ -119,11 +119,15 @@ func NewConnectionPool() *ConnectionPool {
 
 func stream(connectionPool *ConnectionPool) {
 	previousFilename := ""
+
+nextSong:
 	for {
 		entries, err := os.ReadDir(MEDIADIR)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("error reading media dir: " + err.Error())
+			continue
 		}
+
 		filenames := make([]string, 0)
 		for _, e := range entries {
 			filenames = append(filenames, MEDIADIR+string(os.PathSeparator)+e.Name())
@@ -142,15 +146,22 @@ func stream(connectionPool *ConnectionPool) {
 
 		file, err := os.Open(filename)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("cannot open file %s: %s", filename, err)
+			continue
 		}
 
 		content, err := io.ReadAll(file)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("cannot read file %s: %s", filename, err)
+			continue
 		}
 
-		buffer := make([]byte, BUFFERSIZE)
+		size := BUFFERSIZE
+		if len(content) < BUFFERSIZE {
+			size = len(content)
+		}
+
+		buffer := make([]byte, size)
 		tempfile := bytes.NewReader(content)
 		ticker := time.NewTicker(time.Millisecond * time.Duration(DELAY))
 
@@ -158,7 +169,7 @@ func stream(connectionPool *ConnectionPool) {
 			_, err := tempfile.Read(buffer)
 			if err == io.EOF {
 				ticker.Stop()
-				break
+				break nextSong
 			}
 			connectionPool.Broadcast(buffer)
 		}
