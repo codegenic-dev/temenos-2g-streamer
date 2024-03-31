@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -14,11 +15,27 @@ import (
 var (
 	MEDIADIR   = "media"
 	PORT       = "8080"
-	BUFFERSIZE = 4096
-	DELAY      = 150
+	BUFFERSIZE = 2 * 4096
+	DELAY      = 300
 )
 
 func main() {
+	if bufferSizeOverride := os.Getenv("T2G_BUFFERSIZE"); bufferSizeOverride != "" {
+		bufferSize, err := strconv.ParseInt(bufferSizeOverride, 10, 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+		BUFFERSIZE = int(bufferSize)
+	}
+
+	if delayOverride := os.Getenv("T2G_DELAYMS"); delayOverride != "" {
+		newDelay, err := strconv.ParseInt(delayOverride, 10, 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+		DELAY = int(newDelay)
+	}
+
 	if mediaDirOverride := os.Getenv("T2G_MEDIA"); mediaDirOverride != "" {
 		MEDIADIR = mediaDirOverride
 	}
