@@ -1,5 +1,7 @@
 # temenos-2g-streamer
 
+temenos2g.com
+
 env vars config:
 
 ```
